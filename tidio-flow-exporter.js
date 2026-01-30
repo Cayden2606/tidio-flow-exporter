@@ -1,0 +1,298 @@
+(function() {
+    console.log("🚀 Starting Flow Export...");
+
+    try {
+        // Ask user for format choice
+        const formatChoice = prompt("Choose export format:\n1 - SVG (vector, smaller file)\n2 - PDF (printable, universal)\n\nEnter 1 or 2:", "1");
+        
+        if (!formatChoice || (formatChoice !== "1" && formatChoice !== "2")) {
+            console.log("Export cancelled or invalid choice.");
+            return;
+        }
+        
+        const exportAsPDF = formatChoice === "2";
+        
+        // 1. Select the visible SVG
+        const sourceSvg = document.querySelector('svg.mainSvg');
+        if (!sourceSvg) {
+            alert("❌ Could not find the Tidio Flow. Please open the Flow Editor.");
+            return;
+        }
+
+        // 2. Find the inner content
+        const contentGroup = sourceSvg.querySelector('g');
+        if (!contentGroup) {
+            alert("❌ Error: No content group found.");
+            return;
+        }
+
+        // 3. Get the flow name from the input field
+        let flowName = "tidio-flow";
+        const nameInput = document.querySelector('input.css-14m9r7a.e1l9kdn2');
+        if (nameInput && nameInput.value) {
+            flowName = nameInput.value
+                .trim()
+                .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .toLowerCase();
+        }
+        
+        console.log(`📝 Flow name: ${flowName}`);
+        console.log(`📄 Format: ${exportAsPDF ? 'PDF' : 'SVG'}`);
+
+        // 4. Clone the SVG
+        const clonedSvg = sourceSvg.cloneNode(true);
+        const clonedContentGroup = clonedSvg.querySelector('g');
+
+        // SVG Icons
+        const ICON_SUCCESS = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="m443.9 122.2-50.2-39.6c-1.6-1.3-3.5-2.2-5.7-2.2s-4.2.9-5.8 2.3L199.8 317.2s-71.7-69-73.7-71-4.7-5.4-8.7-5.4-5.8 2.8-7.9 4.9c-1.6 1.6-27.1 28.5-39.7 41.8-.7.8-1.2 1.3-1.8 1.9-1.1 1.6-1.8 3.3-1.8 5.2 0 2 .7 3.7 1.8 5.2l2.6 2.4S197.9 424.5 200 426.6s4.7 4.8 8.4 4.8 6.7-3.9 8.4-5.7l227.6-292.4c1.1-1.6 1.8-3.3 1.8-5.3-.2-2.2-1.1-4.1-2.3-5.8" fill="#68c462"/></svg>`;
+        const ICON_FAIL = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512" style="display:inline-block; vertical-align:middle; margin-right:4px;"><path d="M256 294.3 136.8 413.5l-38.3-38.3L217.7 256 98.5 136.8l38.3-38.3L256 217.7 375.2 98.5l38.3 38.3L294.3 256l119.2 119.2-38.3 38.3z" fill="#e72b27"/></svg>`;
+
+        // 5. STYLE TRANSFER
+        function inlineStyles(source, target) {
+            if (!source || !target) return;
+
+            const computed = window.getComputedStyle(source);
+            
+            const styles = [
+                "fill", "stroke", "stroke-width", "opacity", 
+                "font-family", "font-size", "font-weight", "color", 
+                "line-height", "text-align", "visibility", "display",
+                "stroke-dasharray", "stroke-linecap",
+                "background-color", "padding", "border-radius", "margin", 
+                "box-shadow", "align-items", "justify-content", "white-space"
+            ];
+
+            styles.forEach(prop => {
+                if(computed[prop]) target.style[prop] = computed[prop];
+            });
+
+            // Special handling for connection labels
+            if (source.classList && (
+                source.classList.contains('connectionText') || 
+                source.classList.contains('css-hzpw1e') || 
+                source.classList.contains('e1l5kdpd0')
+            )) {
+                target.style.backgroundColor = "#EFF2F6";
+                target.style.borderRadius = "4px";
+                target.style.opacity = "1"; 
+            }
+
+            // Replace spans with inline icons (Success/Fail)
+            if (source.classList && (
+                source.classList.contains('routeDetailsSuccess') ||
+                source.classList.contains('routeDetailsFail')
+            )) {
+                target.style.backgroundImage = 'none';
+                target.style.display = "inline-flex";
+                target.style.alignItems = "center";
+                target.style.verticalAlign = "middle";
+                target.style.width = "auto";
+                target.style.height = "auto";
+                
+                if (source.classList.contains('routeDetailsSuccess')) {
+                    target.innerHTML = ICON_SUCCESS;
+                } else if (source.classList.contains('routeDetailsFail')) {
+                    target.innerHTML = ICON_FAIL;
+                }
+            }
+
+            if (['P', 'SPAN', 'DIV', 'FOREIGNOBJECT'].includes(source.tagName.toUpperCase())) {
+                target.style.color = computed.color || "#000"; 
+                target.style.fontSize = computed.fontSize || "14px";
+                target.style.overflow = "visible";
+            }
+
+            for (let i = 0; i < source.children.length; i++) {
+                if (target.children[i]) {
+                    inlineStyles(source.children[i], target.children[i]);
+                }
+            }
+        }
+        
+        inlineStyles(sourceSvg, clonedSvg);
+
+        // 6. CLEANUP
+        const ignoreIds = [
+            "currentlyDraggedNodeWrongConnectionText", 
+            "currentlyDraggedNodeCircle",
+            "currentlyDraggedLineText",
+            "currentlyDraggedLine",
+            "currentlyDraggedLine-arrow"
+        ];
+        
+        ignoreIds.forEach(id => {
+            const unwanted = clonedSvg.querySelector(`[id="${id}"]`);
+            if (unwanted) unwanted.remove();
+        });
+        
+        // 7. REMOVE TOP-LEVEL TRANSFORM from <g>
+        clonedContentGroup.removeAttribute('transform');
+        
+        // 8. ADD TO DOM TEMPORARILY to calculate bbox
+        clonedSvg.style.position = 'absolute';
+        clonedSvg.style.left = '-99999px';
+        clonedSvg.style.top = '-99999px';
+        clonedSvg.style.visibility = 'hidden';
+        document.body.appendChild(clonedSvg);
+        
+        // 9. GET BBOX
+        const bbox = clonedContentGroup.getBBox();
+        
+        // 10. REMOVE FROM DOM
+        document.body.removeChild(clonedSvg);
+        
+        if (bbox.width === 0 || bbox.height === 0) {
+            alert("❌ Error: Unable to calculate bounding box. Try zooming or moving the canvas.");
+            console.error("BBox returned:", bbox);
+            return;
+        }
+        
+        // 11. ADD 10PX PADDING TO VIEWBOX
+        const padding = 10;
+        var viewBox = [
+            bbox.x - padding, 
+            bbox.y - padding, 
+            bbox.width + (padding * 2), 
+            bbox.height + (padding * 2)
+        ].join(" ");
+        clonedSvg.setAttribute("viewBox", viewBox);
+        
+        console.log(`📐 ViewBox set to: ${viewBox} (with ${padding}px padding)`);
+        
+        clonedSvg.removeAttribute("width");
+        clonedSvg.removeAttribute("height");
+        
+        clonedSvg.style.position = '';
+        clonedSvg.style.left = '';
+        clonedSvg.style.top = '';
+        clonedSvg.style.visibility = '';
+        
+        clonedSvg.style.backgroundColor = "#EFF2F6";
+
+        // 11. SERIALIZE SVG
+        const serializer = new XMLSerializer();
+        let svgSource = serializer.serializeToString(clonedSvg);
+
+        if(!svgSource.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)){
+            svgSource = svgSource.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+
+        if (exportAsPDF) {
+            // 12. CONVERT TO PDF using print dialog
+            console.log("📦 Preparing PDF...");
+            createPrintablePDF(clonedSvg, bbox, flowName, padding);
+        } else {
+            // 12. DOWNLOAD AS SVG
+            downloadSVG(svgSource, flowName);
+        }
+
+        function downloadSVG(source, name) {
+            const blob = new Blob([source], {type: "image/svg+xml;charset=utf-8"});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            
+            link.href = url;
+            link.download = `${name}.svg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            console.log(`✅ Download Complete: ${name}.svg`);
+        }
+
+        function createPrintablePDF(svgElement, bbox, name, padding) {
+            // Create a new window with the SVG for printing
+            const printWindow = window.open('', '_blank');
+            
+            if (!printWindow) {
+                alert("❌ Please allow pop-ups to generate PDF. Downloading as SVG instead.");
+                const serializer = new XMLSerializer();
+                const svgSource = serializer.serializeToString(svgElement);
+                downloadSVG(svgSource, name);
+                return;
+            }
+            
+            // Calculate dimensions in inches for print (including padding)
+            const pxToInch = 1/96;
+            const widthInch = (bbox.width + (padding * 2)) * pxToInch;
+            const heightInch = (bbox.height + (padding * 2)) * pxToInch;
+            
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${name}</title>
+                    <style>
+                        @page {
+                            size: ${widthInch}in ${heightInch}in;
+                            margin: 0;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            width: ${bbox.width + (padding * 2)}px;
+                            height: ${bbox.height + (padding * 2)}px;
+                        }
+                        svg {
+                            display: block;
+                            width: 100%;
+                            height: 100%;
+                        }
+                        .close-button {
+                            position: fixed;
+                            top: 10px;
+                            right: 10px;
+                            background: #4CAF50;
+                            color: white;
+                            border: none;
+                            padding: 10px 20px;
+                            font-size: 16px;
+                            cursor: pointer;
+                            border-radius: 4px;
+                            z-index: 9999;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        }
+                        .close-button:hover {
+                            background: #45a049;
+                        }
+                        @media print {
+                            .close-button {
+                                display: none;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <button class="close-button" onclick="window.close()">Close Window</button>
+                    ${svgString}
+                    <script>
+                        window.onload = function() {
+                            setTimeout(() => {
+                                window.focus();
+                                window.print();
+                            }, 500);
+                        };
+                        window.onafterprint = function() {
+                            setTimeout(() => {
+                                window.close();
+                            }, 100);
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            console.log(`✅ Print dialog opened for ${name}. Click "Close Window" button if it doesn't auto-close.`);
+        }
+
+    } catch (e) {
+        alert("❌ Fatal Error: " + e.message);
+        console.error(e);
+    }
+})();
