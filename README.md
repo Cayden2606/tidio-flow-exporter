@@ -116,6 +116,7 @@ Works in all modern browsers:
 ### Styles not preserved
 - Make sure all flow elements are visible on screen before exporting
 - Try scrolling through the flow once before exporting
+- If exported view shows ghost-looking edit/duplicate/delete menus on an action, go back to Tidio and deselect that action by hovering your cursor over it and then moving away to remove the ghost menu
 
 ## 📄 License
 
