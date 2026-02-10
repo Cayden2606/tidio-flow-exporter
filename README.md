@@ -19,7 +19,7 @@ Export Tidio chatbot flows as high-resolution SVG or PDF files with selectable t
 1. **Create the bookmarklet:**
    - Create a new bookmark in your browser
    - Name it "Export Tidio Flow"
-   - Copy the entire contents of [`titidio-flow-exporter-bookmarklet.txt`](tidio-flow-exporter-bookmarklet.txt)
+   - Copy the entire contents of [`tidio-flow-exporter-bookmarklet.txt`](tidio-flow-exporter-bookmarklet.txt)
    - Paste it as the URL/address of the bookmark
 
 2. **Use it:**
